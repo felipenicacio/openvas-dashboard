@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-950 text-gray-100 antialiased;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-gray-900; }
+  ::-webkit-scrollbar-thumb { @apply bg-gray-600 rounded-full; }
+}
+
+@layer components {
+  .card { @apply bg-gray-900 border border-gray-800 rounded-xl p-5; }
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-500 text-white font-semibold
+           px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply text-gray-400 hover:text-white hover:bg-gray-800
+           px-3 py-2 rounded-lg text-sm transition-colors;
+  }
+  .input {
+    @apply bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm
+           text-gray-100 placeholder-gray-500 focus:outline-none
+           focus:border-blue-500 transition-colors w-full;
+  }
+  .table-th {
+    @apply text-xs text-gray-400 font-semibold uppercase tracking-wider
+           px-4 py-3 text-left select-none cursor-pointer hover:text-gray-200;
+  }
+  .table-td { @apply px-4 py-3 text-sm text-gray-300; }
+  .table-row { @apply border-b border-gray-800 hover:bg-gray-800/50 transition-colors; }
+}

@@ -1,0 +1,16 @@
+[Unit]
+Description=GVM socket relay — Docker volume → /run/gvmd.sock
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStartPre=/bin/rm -f /run/gvmd.sock
+ExecStart=/usr/bin/socat \
+    UNIX-LISTEN:/run/gvmd.sock,fork,mode=0666 \
+    UNIX-CONNECT:/var/lib/docker/volumes/greenbone-community-edition_gvmd_socket_vol/_data/gvmd.sock
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

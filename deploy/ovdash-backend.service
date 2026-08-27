@@ -1,0 +1,36 @@
+[Unit]
+Description=OpenVAS Dashboard — Backend API
+Documentation=https://github.com/felipenicacio/openvas-dashboard
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=ovdash
+Group=ovdash
+
+WorkingDirectory=/opt/openvas-dashboard/backend
+EnvironmentFile=/opt/openvas-dashboard/.env
+Environment=DATA_DIR=/opt/openvas-dashboard/data
+
+ExecStart=/opt/openvas-dashboard/backend/.venv/bin/uvicorn \
+    app.main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 1 \
+    --log-level info
+
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ovdash-backend
+
+# Segurança
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ReadWritePaths=/opt/openvas-dashboard/data
+
+[Install]
+WantedBy=multi-user.target
