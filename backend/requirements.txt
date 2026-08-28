@@ -1,6 +1,6 @@
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
-python-gvm==22.9.0
+python-gvm==24.6.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-dotenv==1.0.1
@@ -11,4 +11,4 @@ pydantic==2.9.2
 pydantic-settings==2.6.1
 httpx==0.27.2
 python-multipart==0.0.12
-fpdf2>=2.7.9
+fpdf2==2.8.1
