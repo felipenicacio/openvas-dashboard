@@ -18,7 +18,7 @@ aiosqlite==0.22.1
 APScheduler==3.11.3
 
 # GVM / Greenbone
-python-gvm==24.6.0
+python-gvm==27.7.0
 
 # PDF export
 fpdf2==2.8.8
