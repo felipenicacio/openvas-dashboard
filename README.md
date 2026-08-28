@@ -2,6 +2,12 @@
 
 Dashboard moderno para gestão de vulnerabilidades OpenVAS/GVM — inspirado em Nessus, Qualys e Rapid7.
 
+## Preview
+
+![OpenVAS Dashboard — Dashboard principal](docs/images/dashboard-preview.jpg)
+
+> Visão consolidada da postura de vulnerabilidades, com indicadores de exposição, distribuição por severidade, hosts afetados, scans ativos e evolução mensal.
+
 ## Stack
 
 | Camada    | Tecnologia                                      |
@@ -92,7 +98,7 @@ COOKIE_SECURE=true              # false apenas em desenvolvimento HTTP local
 # Definir apenas se frontend e API estiverem em origens distintas:
 # CORS_ORIGINS=https://dashboard.sua-empresa.com
 
-# ── Outros ───────────────────────────────────────────────────────────────────
+# ── Outros ────────────────────────────────────────────────────────────────────
 APP_ENV=production
 ENABLE_API_DOCS=false           # NUNCA true em produção
 SYNC_INTERVAL_MINUTES=30
