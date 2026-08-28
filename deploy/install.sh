@@ -66,6 +66,7 @@ echo "Copiando arquivos para $INSTALL_DIR..."
 rsync -a --delete \
     --exclude='.git' \
     --exclude='.env' \
+    --exclude='.venv/' \
     --exclude='data/' \
     --exclude='frontend/node_modules' \
     --exclude='frontend/dist' \
