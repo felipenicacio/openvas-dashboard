@@ -51,12 +51,14 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     """
     Valida Origin/Referer em requisições mutantes para /api/*.
 
-    Em produção (CORS_ORIGINS definido): aceita apenas origens na lista configurada
-    mais o próprio host da requisição (para same-origin).
+    O header Origin é enviado pelo browser em requisições cross-origin e,
+    dependendo do browser e contexto (XHR vs fetch), também em same-origin.
+    O Referer é usado como fallback quando Origin está ausente.
 
-    Em same-origin deployment (CORS_ORIGINS vazio): aceita apenas requisições
-    sem header Origin (same-origin não envia Origin em navegadores modernos para
-    navegação normal) ou com Origin igual ao host da requisição.
+    Em produção: aceita origens na lista configurada (CORS_ORIGINS) mais o
+    próprio host da requisição (same-origin). Requisições sem Origin nem Referer
+    são bloqueadas como não verificáveis. Em desenvolvimento a verificação é
+    permissiva para facilitar o desenvolvimento local.
     """
 
     def __init__(self, app, allowed_origins: list[str], is_development: bool = False):

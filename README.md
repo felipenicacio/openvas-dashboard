@@ -43,11 +43,12 @@ dnf install python3.11 nodejs npm nginx rsync -y
 git clone https://github.com/felipenicacio/openvas-dashboard.git
 cd openvas-dashboard
 
-# 2. Configure o ambiente
-sudo cp .env.example /opt/openvas-dashboard/.env   # cria o destino se não existir
-sudo nano /opt/openvas-dashboard/.env              # preencha os valores obrigatórios
+# 2. Crie o diretório de destino e configure o .env
+sudo mkdir -p /opt/openvas-dashboard
+sudo cp .env.example /opt/openvas-dashboard/.env
+sudo nano /opt/openvas-dashboard/.env   # preencha os valores obrigatórios
 
-# 3. Execute o instalador como root (detecta o diretório do repositório automaticamente)
+# 3. Execute o instalador como root (detecta o diretório do clone automaticamente)
 sudo bash deploy/install.sh
 ```
 
@@ -144,14 +145,15 @@ Faça login no dashboard e clique em **"Sincronizar GVM"** na sidebar, ou via cu
 (a sessão é gerenciada por cookie — use `-c`/`-b` para persistir):
 
 ```bash
-# 1. Login (salva cookie na sessão)
+# 1. Login (salva cookie na sessão; login é isento da verificação CSRF)
 curl -s -X POST https://<servidor>/api/auth/token \
   -H "Content-Type: application/json" \
   -d '{"username":"operador","password":"sua-senha"}' \
   -c cookies.txt
 
-# 2. Sincronização manual usando o cookie de sessão
+# 2. Sincronização manual (inclui Origin para passar o middleware CSRF)
 curl -s -X POST https://<servidor>/api/scans/sync \
+  -H "Origin: https://<servidor>" \
   -b cookies.txt
 ```
 
@@ -223,9 +225,9 @@ pelo browser). Documentação interativa disponível quando `ENABLE_API_DOCS=tru
 | `/api/hosts`                | GET    | ✓      | Lista hosts com risk score    |
 | `/api/hosts/{ip}`           | GET    | ✓      | Host + vulnerabilidades       |
 | `/api/scans`                | GET    | ✓      | Tasks do GVM                  |
-| `/api/scans/{id}/start`     | POST   | ✓ ADMIN| Inicia scan                   |
-| `/api/scans/{id}/stop`      | POST   | ✓ ADMIN| Para scan                     |
-| `/api/scans/sync`           | POST   | ✓ ADMIN| Sincronização manual com GVM  |
+| `/api/scans/{id}/start`     | POST   | ✓ ADMIN  | Inicia scan                   |
+| `/api/scans/{id}/stop`      | POST   | ✓ ADMIN  | Para scan                     |
+| `/api/scans/sync`           | POST   | ✓ ANALYST| Sincronização manual com GVM  |
 | `/api/health`               | GET    | —      | Status mínimo do serviço      |
 
 ## Licença

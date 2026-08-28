@@ -35,7 +35,7 @@ Content-Security-Policy: default-src 'none'; script-src 'self'; ...
 ### CSRF
 - Middleware valida header `Origin` (ou `Referer` como fallback) em toda requisição mutante (`POST`, `PUT`, `PATCH`, `DELETE`) sobre `/api/*`
 - Endpoint de login (`/api/auth/token`) isento — sem cookie pré-existente para proteger
-- Em deployments same-origin, browsers modernos não enviam `Origin` em requisições da mesma origem; a verificação bloqueia origens cruzadas não autorizadas
+- O comportamento de `Origin` em same-origin varia por browser e contexto (XHR tipicamente omite, `fetch` pode incluir); o Referer é usado como fallback quando `Origin` está ausente, garantindo cobertura em ambos os casos
 - Complementa `SameSite=Strict` no cookie de sessão (defesa em profundidade)
 
 ### Outros controles

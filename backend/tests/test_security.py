@@ -511,3 +511,110 @@ class TestIPExtraction:
         request.headers = {}
         request.client = None
         assert _get_client_ip(request) == "unknown"
+
+    def test_x_real_ip_not_trusted_from_non_loopback(self):
+        """X-Real-IP não deve ser aceito se a conexão não vier do loopback (nginx)."""
+        from app.routers.auth import _get_client_ip
+        from unittest.mock import MagicMock
+        request = MagicMock()
+        # Conexão vinda de IP externo, não do nginx/loopback
+        request.headers = {"X-Real-IP": "10.0.0.1"}
+        request.client = MagicMock()
+        request.client.host = "203.0.113.99"  # IP externo, não loopback
+        # Deve ignorar X-Real-IP e usar o IP da conexão direta
+        result = _get_client_ip(request)
+        assert result == "203.0.113.99"
+        assert result != "10.0.0.1"
+
+    def test_x_real_ip_trusted_from_ipv6_loopback(self):
+        """X-Real-IP deve ser aceito quando conexão vem de ::1 (nginx IPv6)."""
+        from app.routers.auth import _get_client_ip
+        from unittest.mock import MagicMock
+        request = MagicMock()
+        request.headers = {"X-Real-IP": "203.0.113.55"}
+        request.client = MagicMock()
+        request.client.host = "::1"
+        assert _get_client_ip(request) == "203.0.113.55"
+
+
+# ── 10. CSRF — ausência de Origin/Referer e Referer fallback ──────────────────
+
+class TestCSRFMissingHeaders:
+    """
+    Testa diretamente o middleware CSRF em modo produção para os casos
+    de ausência total de cabeçalhos de origem e fallback via Referer.
+    """
+
+    def _make_production_app(self, allowed_origins=None):
+        from app.csrf import CSRFMiddleware
+        from fastapi import FastAPI
+
+        api = FastAPI()
+
+        @api.post("/api/action")
+        async def action():
+            return {"ok": True}
+
+        @api.post("/api/auth/token")
+        async def login():
+            return {"token": "x"}
+
+        api.add_middleware(
+            CSRFMiddleware,
+            allowed_origins=allowed_origins or [],
+            is_development=False,
+        )
+        return api
+
+    def test_post_without_origin_or_referer_is_blocked(self):
+        """POST sem Origin nem Referer deve retornar 403 em produção."""
+        from fastapi.testclient import TestClient
+        client = TestClient(self._make_production_app(), raise_server_exceptions=False)
+        # Sem qualquer cabeçalho de origem
+        resp = client.post("/api/action", headers={"Host": "myserver.com"})
+        assert resp.status_code == 403
+        assert "origem" in resp.json().get("detail", "").lower()
+
+    def test_post_with_referer_fallback_passes(self):
+        """POST sem Origin mas com Referer válido deve passar."""
+        from fastapi.testclient import TestClient
+        client = TestClient(self._make_production_app(), raise_server_exceptions=False)
+        resp = client.post(
+            "/api/action",
+            headers={
+                "Host": "myserver.com",
+                "Referer": "https://myserver.com/dashboard",
+                # Sem Origin
+            },
+        )
+        assert resp.status_code == 200
+
+    def test_login_exempt_without_origin(self):
+        """Login (/api/auth/token) não requer Origin — é isento do CSRF."""
+        from fastapi.testclient import TestClient
+        client = TestClient(self._make_production_app(), raise_server_exceptions=False)
+        resp = client.post(
+            "/api/auth/token",
+            headers={"Host": "myserver.com"},
+            json={"username": "u", "password": "p"},
+        )
+        # Deve chegar ao endpoint (não bloqueado pelo CSRF)
+        assert resp.status_code != 403
+
+    def test_get_not_checked(self):
+        """GET não é verificado pelo CSRF."""
+        from fastapi import FastAPI
+        from app.csrf import CSRFMiddleware
+        from fastapi.testclient import TestClient
+
+        api = FastAPI()
+
+        @api.get("/api/data")
+        async def data():
+            return {"ok": True}
+
+        api.add_middleware(CSRFMiddleware, allowed_origins=[], is_development=False)
+        client = TestClient(api, raise_server_exceptions=False)
+        # GET sem Origin não deve ser bloqueado
+        resp = client.get("/api/data", headers={"Host": "myserver.com"})
+        assert resp.status_code == 200

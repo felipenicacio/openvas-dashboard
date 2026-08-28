@@ -58,20 +58,31 @@ async def _check_rate_limit(ip: str) -> None:
         _auth_attempts[ip].append(now)
 
 
+_TRUSTED_PROXY_HOSTS = frozenset({"127.0.0.1", "::1"})
+
+
 def _get_client_ip(request: Request) -> str:
     """
-    Extrai IP real do cliente via X-Real-IP (definido pelo nginx).
+    Extrai IP real do cliente via X-Real-IP, somente quando a conexão TCP
+    vem do proxy confiável (loopback — 127.0.0.1 ou ::1).
 
-    Não usa X-Forwarded-For: o primeiro valor é controlável pelo cliente e pode ser
-    forjado para contornar rate limiting. X-Real-IP é definido exclusivamente pelo
-    nginx e reflete o IP da conexão TCP recebida pelo proxy.
+    Segurança: X-Real-IP só é confiável se o remetente direto for o nginx.
+    Um cliente que se conecte diretamente (sem passar pelo nginx) poderia
+    forjar o header X-Real-IP e contornar o rate limiting. Ao verificar
+    request.client.host primeiro, garantimos que apenas o proxy confiável
+    pode injetar esse header.
 
-    Em conexão direta (desenvolvimento), usa request.client.host.
+    Fluxo esperado em produção:
+      cliente → nginx (define X-Real-IP) → uvicorn (127.0.0.1:8000)
+
+    Em desenvolvimento (conexão direta), usa request.client.host.
     """
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return real_ip.strip()
-    return request.client.host if request.client else "unknown"
+    client_host = request.client.host if request.client else "unknown"
+    if client_host in _TRUSTED_PROXY_HOSTS:
+        real_ip = request.headers.get("X-Real-IP")
+        if real_ip:
+            return real_ip.strip()
+    return client_host
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────

@@ -49,9 +49,13 @@ mkdir -p "$INSTALL_DIR"
 
 # ── Copiar arquivos do repositório para /opt ──────────────────────────────────
 echo "Copiando arquivos para $INSTALL_DIR..."
+# IMPORTANTE: --exclude=data/ garante que o banco SQLite e arquivos WAL/SHM
+# em $DATA_DIR NÃO sejam removidos durante atualizações. O diretório de dados
+# é gerenciado exclusivamente pelo serviço e nunca deve vir do repositório.
 rsync -a --delete \
     --exclude='.git' \
     --exclude='.env' \
+    --exclude='data/' \
     --exclude='frontend/node_modules' \
     --exclude='frontend/dist' \
     --exclude='backend/__pycache__' \
