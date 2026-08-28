@@ -1,4 +1,17 @@
-# OpenVAS Dashboard — Security Hardening v1.1.0
+# OpenVAS Dashboard — Security Hardening v1.2.0
+
+## O que mudou na v1.2.0
+
+### Runtime Secret Management via systemd credentials
+- **GVM_PASSWORD** e **JWT_SECRET** migrados para systemd `LoadCredential` (preferencial em produção)
+- Sensitive runtime credentials são fornecidas via systemd credentials, não em texto claro no `.env`
+- Suporte legado ao `.env` mantido até a v1.3.0 com aviso explícito de deprecação (`SECURITY WARNING`); removido na v1.3.0
+- **APP_PASSWORD_HASH** permanece no `.env` — é hash Argon2id irreversível, não é um secret recuperável
+- Camada `resolve_secret()` em `config.py` com precedência: systemd credential > legacy .env > fail-secure
+- Validações JWT (`mínimo 32 chars`, valor não inseguro) aplicadas ao valor **resolvido** (não ao raw .env)
+- Arquivos de credential: `root:root 0600`, entregues via `CREDENTIALS_DIRECTORY` pelo systemd
+- Fail-secure: sem nenhuma fonte válida → recusa startup com `ValueError`
+- Nunca loga valores de secrets (nem parcialmente)
 
 ## O que mudou na v1.1.0
 
@@ -53,9 +66,12 @@ Content-Security-Policy: default-src 'none'; script-src 'self'; ...
 
 Execute antes de colocar em produção:
 
-- [ ] Gerar `JWT_SECRET` com `python3 -c "import secrets; print(secrets.token_hex(32))"`
+- [ ] Executar `install.sh` — cria `jwt_secret` automaticamente em `/etc/openvas-dashboard/credentials/`
+- [ ] Criar `/etc/openvas-dashboard/credentials/gvm_password` com a senha GVM (manualmente, sem `echo`)
+- [ ] Confirmar permissões `600 root:root` em ambos os arquivos de credential
 - [ ] Gerar hash da senha com `python backend/generate_hash.py`
-- [ ] Definir `APP_PASSWORD_HASH` e `JWT_SECRET` no `.env`
+- [ ] Definir `APP_PASSWORD_HASH` (e demais configs não-secret) no `.env`
+- [ ] Confirmar que `.env` **não** contém `GVM_PASSWORD` nem `JWT_SECRET` (após migração)
 - [ ] Confirmar que `.env` tem permissão `640` (`chmod 640 .env`)
 - [ ] Confirmar que `.env` **não** está no repositório (`git status`)
 - [ ] Confirmar `ENABLE_API_DOCS=false` no `.env`
@@ -80,10 +96,13 @@ sudo cp .env.example /opt/openvas-dashboard/.env
 sudo nano /opt/openvas-dashboard/.env
 ```
 
-Preencher obrigatoriamente:
-- `JWT_SECRET` — gerado com `python3 -c "import secrets; print(secrets.token_hex(32))"`
+Preencher obrigatoriamente no `.env`:
 - `APP_PASSWORD_HASH` — gerado com `python backend/generate_hash.py`
-- `GVM_PASSWORD` — senha do usuário GVM
+- Demais configurações não-secret (veja `.env.example`)
+
+Gerenciar via systemd credentials (não no `.env`):
+- `jwt_secret` — gerado automaticamente pelo `install.sh` em `/etc/openvas-dashboard/credentials/jwt_secret`
+- `gvm_password` — criado manualmente pelo operador em `/etc/openvas-dashboard/credentials/gvm_password`
 
 ### 2. Instalar
 

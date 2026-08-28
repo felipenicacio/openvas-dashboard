@@ -44,7 +44,7 @@ def _gmp_session() -> Generator[Gmp, None, None]:
             timeout=300,
         )
     with Gmp(connection=conn, transform=EtreeTransform()) as gmp:
-        gmp.authenticate(settings.gvm_username, settings.gvm_password)
+        gmp.authenticate(settings.gvm_username, settings.resolved_gvm_password)
         yield gmp
 
 

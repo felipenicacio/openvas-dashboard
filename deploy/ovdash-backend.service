@@ -1,10 +1,15 @@
-# systemd service — OpenVAS Dashboard backend v1.1.0
+# systemd service — OpenVAS Dashboard backend v1.2.0
 # Hardening: privilégio mínimo, filesystem protegido
 #
 # Instalação:
-#   sudo cp ovdash-backend.service /etc/systemd/system/
-#   sudo systemctl daemon-reload
-#   sudo systemctl enable --now ovdash-backend
+#   sudo bash deploy/install.sh
+#
+# NOTA: LoadCredential para jwt_secret e gvm_password é gerado em
+#   /etc/systemd/system/ovdash-backend.service.d/credentials.conf
+# pelo install.sh, condicionalmente, apenas quando os arquivos de credential
+# existem. Isso garante backward compatibility durante upgrade: se os arquivos
+# ainda não existem, o serviço inicia sem LoadCredential e usa as variáveis
+# legadas do .env (modo deprecated, suporte removido na v1.3.0).
 
 [Unit]
 Description=OpenVAS Dashboard Backend (FastAPI/uvicorn)
@@ -40,6 +45,13 @@ PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=/opt/openvas-dashboard/data
+# Nota: BindReadOnlyPaths para /etc/openvas-dashboard/credentials foi removido
+# intencionalmente. O processo não deve ter acesso direto ao diretório fonte
+# das credentials. O fluxo correto é:
+#   /etc/openvas-dashboard/credentials/* → PID 1 (systemd LoadCredential)
+#     → CREDENTIALS_DIRECTORY → aplicação
+# O drop-in credentials.conf (gerado pelo install.sh) define LoadCredential
+# para cada arquivo de credential que existe no momento da instalação.
 
 # Kernel e namespace
 ProtectKernelTunables=true
