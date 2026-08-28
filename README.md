@@ -1,6 +1,6 @@
 # OpenVAS Dashboard
 
-Dashboard moderno para gestão de vulnerabilidades OpenVAS/GVM — inspirado em Nessus, Qualys e Rapid7.
+Dashboard moderno para gestão de vulnerabilidades OpenVAS/GVM.
 
 ## Preview
 
