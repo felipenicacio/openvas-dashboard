@@ -87,4 +87,5 @@ async def init_db():
 
 def make_finding_id(host: str, port: str, protocol: str, nvt_oid: str, nvt_name: str) -> str:
     key = f"{host.strip()}:{port}:{protocol.lower()}:{nvt_oid or nvt_name[:120].lower()}"
-    return "FND-" + hashlib.md5(key.encode()).hexdigest()[:8].upper()
+    # usedforsecurity=False: MD5 aqui é identificador estável, não uso criptográfico
+    return "FND-" + hashlib.md5(key.encode(), usedforsecurity=False).hexdigest()[:8].upper()

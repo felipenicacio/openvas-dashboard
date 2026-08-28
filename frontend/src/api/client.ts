@@ -1,48 +1,61 @@
-import axios from 'axios'
+/**
+ * Axios client — OpenVAS Dashboard v1.1.0
+ *
+ * Mudanças de segurança:
+ * - Token JWT não armazenado em localStorage (vulnerável a XSS)
+ * - Autenticação via cookie HttpOnly gerenciado pelo browser
+ * - withCredentials: true envia cookie em todas as requisições
+ * - 401 redireciona para /login sem expor informações de sessão
+ */
 
-const api = axios.create({ baseURL: '/api' })
+import axios from "axios";
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
+const api = axios.create({
+  baseURL: "/api",
+  withCredentials: true,   // envia cookie de sessão automaticamente
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
+// ── Interceptor de resposta ────────────────────────────────────────────────────
 api.interceptors.response.use(
-  (r) => r,
-  (err) => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Sessão expirada ou inválida — redireciona para login
+      // Sem acesso ao token (HttpOnly) — browser gerencia o cookie
+      const currentPath = window.location.pathname;
+      if (currentPath !== "/login") {
+        window.location.replace("/login");
+      }
     }
-    return Promise.reject(err)
+    return Promise.reject(error);
   }
-)
+);
 
-export default api
+export default api;
 
-// ── Auth ──────────────────────────────────────────────────────────
-export const login = (username: string, password: string) =>
-  api.post<{ access_token: string }>('/auth/token', { username, password })
+// ── Tipos ─────────────────────────────────────────────────────────────────────
 
-// ── Dashboard ─────────────────────────────────────────────────────
-export const getDashboard = () => api.get('/dashboard/summary')
+export interface LoginPayload {
+  username: string;
+  password: string;
+}
 
-// ── Vulnerabilities ───────────────────────────────────────────────
-export const getVulns = (params: Record<string, unknown>) =>
-  api.get('/vulnerabilities', { params })
+export interface AuthUser {
+  username: string;
+  role: "viewer" | "analyst" | "admin";
+}
 
-export const getVuln = (id: string) => api.get(`/vulnerabilities/${id}`)
+// ── Auth ──────────────────────────────────────────────────────────────────────
 
-// ── Hosts ─────────────────────────────────────────────────────────
-export const getHosts = (params?: Record<string, unknown>) =>
-  api.get('/hosts', { params })
+/** POST /api/auth/token — autentica e define cookie de sessão */
+export const login = (payload: LoginPayload) =>
+  api.post<{ message: string }>("/auth/token", payload);
 
-export const getHost = (ip: string) => api.get(`/hosts/${encodeURIComponent(ip)}`)
+/** POST /api/auth/logout — revoga token e remove cookie */
+export const logout = () => api.post<{ message: string }>("/auth/logout");
 
-// ── Scans ─────────────────────────────────────────────────────────
-export const getScans = () => api.get('/scans')
-
-export const startScan = (taskId: string) => api.post(`/scans/${taskId}/start`)
-export const stopScan  = (taskId: string) => api.post(`/scans/${taskId}/stop`)
-export const triggerSync = () => api.post('/scans/sync')
+/** GET /api/auth/me — retorna usuário autenticado */
+export const getMe = () => api.get<AuthUser>("/auth/me");

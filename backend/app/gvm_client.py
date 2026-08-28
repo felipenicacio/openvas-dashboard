@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from typing import Generator
 
 from gvm.connections import TLSConnection, UnixSocketConnection
-from gvm.protocols.gmp import Gmpv224 as Gmp
+from gvm.protocols.gmp import GMPv224 as Gmp
 from gvm.transforms import EtreeTransform
 from lxml import etree
 
@@ -160,41 +160,45 @@ def fetch_all_results() -> list[dict]:
     Retorna lista de dicts prontos para inserção no SQLite.
     """
     results = []
-
-    # 1. Coleta IDs em uma sessão e fecha
-    task_list = []
     try:
         with _gmp_session() as gmp:
             tasks_xml = gmp.get_tasks(filter_string="status=Done rows=-1")
-            for task in tasks_xml.findall("task"):
+            tasks = tasks_xml.findall("task")
+            log.info("GVM: %d tasks concluídas encontradas", len(tasks))
+
+            for task in tasks:
                 task_name = _txt(task, "name")
                 last_rpt  = task.find("last_report/report")
                 if last_rpt is None:
                     continue
-                report_id = last_rpt.get("id", "")
-                task_id = task.get("id", "")
-                if report_id:
-                    task_list.append((task_name, report_id, task_id))
+                report_id = last_rpt.get("id","")
+
+                try:
+                    page = 1
+                    page_size = 200
+                    while True:
+                        filter_str = f"rows={page_size} first={(page-1)*page_size+1} levels=hmlg"
+                        report_xml = gmp.get_report(
+                            report_id=report_id,
+                            filter_string=filter_str,
+                            details=True,
+                        )
+                        batch = report_xml.findall(".//result")
+                        if not batch:
+                            break
+                        for res_el in batch:
+                            parsed = _parse_result(res_el, task_name, report_id)
+                            if parsed:
+                                results.append(parsed)
+                        if len(batch) < page_size:
+                            break
+                        page += 1
+                except Exception as e:
+                    log.warning("Erro ao buscar report %s: %s", report_id, e)
+
     except Exception as e:
         log.error("GVM connection error: %s", e)
         raise
-
-    log.info("GVM: %d tasks concluídas encontradas", len(task_list))
-
-    # 2. Busca resultados por task usando get_results (evita container report)
-    for task_name, report_id, task_id in task_list:
-        try:
-            with _gmp_session() as gmp:
-                res_xml = gmp.get_results(
-                    filter_string=f"task_id={task_id} rows=-1 levels=hmlg",
-                    details=True,
-                )
-                for res_el in res_xml.findall(".//result"):
-                    parsed = _parse_result(res_el, task_name, report_id)
-                    if parsed:
-                        results.append(parsed)
-        except Exception as e:
-            log.warning("Erro ao buscar results da task %s: %s", task_id, e)
 
     log.info("GVM: %d resultados coletados", len(results))
     return results
