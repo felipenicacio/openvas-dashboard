@@ -12,6 +12,7 @@ Regras de inicialização:
 import sys
 import logging
 from functools import lru_cache
+from pathlib import Path
 from typing import Optional
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
@@ -37,6 +38,11 @@ class Settings(BaseSettings):
     gvm_username: str = Field(default="", description="GVM admin username — obrigatório")
     gvm_password: str = Field(default="", description="GVM admin password — obrigatório sem socket")
     gvm_socket_path: str = ""
+
+    # ── GVM TLS (obrigatório em modo remoto, i.e. quando gvm_socket_path vazio) ─
+    gvm_tls_ca_file: Optional[str] = None
+    gvm_tls_cert_file: Optional[str] = None
+    gvm_tls_key_file: Optional[str] = None
 
     # ── App auth ──────────────────────────────────────────────────────
     app_username: str = Field(default="", description="Dashboard username — obrigatório")
@@ -82,6 +88,48 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.app_env.lower() == "development"
+
+    @model_validator(mode="after")
+    def _validate_tls_remote(self) -> "Settings":
+        """
+        Em modo remoto (gvm_socket_path vazio), exige host, porta, credenciais
+        e os três arquivos TLS (CA, certificado cliente, chave privada).
+        Nunca loga senha, chave privada ou hash.
+        """
+        if self.gvm_socket_path:
+            # Modo Unix socket — sem requisito TLS.
+            return self
+
+        errors: list[str] = []
+
+        if not self.gvm_host:
+            errors.append("GVM_HOST é obrigatório em modo remoto")
+        if not (1 <= self.gvm_port <= 65535):
+            errors.append(f"GVM_PORT deve ser 1-65535; recebido: {self.gvm_port}")
+        if not self.gvm_username:
+            errors.append("GVM_USERNAME é obrigatório em modo remoto")
+        if not self.gvm_password:
+            errors.append("GVM_PASSWORD é obrigatório em modo remoto")
+
+        for env_name, value in [
+            ("GVM_TLS_CA_FILE", self.gvm_tls_ca_file),
+            ("GVM_TLS_CERT_FILE", self.gvm_tls_cert_file),
+            ("GVM_TLS_KEY_FILE", self.gvm_tls_key_file),
+        ]:
+            if not value:
+                errors.append(f"{env_name} é obrigatório em modo remoto")
+            elif not Path(value).is_file():
+                # Rejeita diretórios, sockets, FIFOs e qualquer objeto não-regular
+                errors.append(
+                    f"{env_name}: caminho não é um arquivo regular: {value}"
+                )
+
+        if errors:
+            raise ValueError(
+                "Configuração GVM TLS inválida para modo remoto:\n"
+                + "\n".join(f"  • {e}" for e in errors)
+            )
+        return self
 
     model_config = {
         "env_file": ".env",
