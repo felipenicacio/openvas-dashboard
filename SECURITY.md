@@ -1,7 +1,7 @@
 # Security Policy
 
 ## Supported Version
-The active security hardening target is OpenVAS Dashboard v1.1.0. Until that release passes the project Security Gate, the application should be treated as under active hardening rather than production-security-complete.
+The active security hardening target is OpenVAS Dashboard v1.2.0. Until that release passes the project Security Gate, the application should be treated as under active hardening rather than production-security-complete.
 
 ## Security Context
 This application processes sensitive infrastructure security information, including hosts, ports, CVEs, vulnerability descriptions, scan information and administrative GVM operations.
@@ -33,10 +33,9 @@ Core requirements include:
 ## Secrets
 Never commit passwords, GVM credentials, JWT secrets, private keys or production tokens. A confirmed exposed secret must be revoked or rotated, not merely removed from the latest commit.
 
-Sensitive runtime credentials (`GVM_PASSWORD`, `JWT_SECRET`) are supplied through systemd credentials (`LoadCredential`), not via plaintext `.env` variables. The legacy `.env` approach for these two secrets is deprecated in v1.2.0 and will be removed in v1.3.0. `APP_PASSWORD_HASH` is an Argon2id hash (irreversible) and may remain in `.env`.
+Sensitive runtime credentials (`GVM_PASSWORD` and `JWT_SECRET`) are supplied through systemd credentials (`LoadCredential`). `APP_PASSWORD_HASH` is an Argon2id hash and remains in the application configuration.
 
-GVM_PASSWORD legacy (`.env`): deprecated — use systemd credential `gvm_password`.
-JWT_SECRET legacy (`.env`): deprecated — use systemd credential `jwt_secret`.
+Credential source files must be restricted to `root:root` with mode `0600`. Secret values must not be emitted in logs, command output, configuration examples or diagnostic messages.
 
 ## Security Gate
 A release is blocked by any unresolved Critical issue, unresolved High issue, confirmed valid secret exposure, failed required security test or failed security build gate unless an exceptional risk decision is explicitly documented and approved.
