@@ -1,14 +1,31 @@
-fastapi==0.115.5
+# OpenVAS Dashboard — backend dependencies v1.1.0
+# Gerado para Python 3.11+
+
+# Framework
+fastapi==0.115.6
 uvicorn[standard]==0.32.1
-python-gvm==24.6.0
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-dotenv==1.0.1
-aiosqlite==0.20.0
-apscheduler==3.10.4
-lxml==5.3.0
-pydantic==2.9.2
-pydantic-settings==2.6.1
-httpx==0.27.2
 python-multipart==0.0.12
+
+# Segurança — autenticação e criptografia
+argon2-cffi==23.1.0       # Argon2id password hashing (OWASP recomendado)
+python-jose[cryptography]==3.3.0  # JWT (HS256)
+
+# Banco de dados (cache local SQLite)
+aiosqlite==0.20.0
+
+# Scheduler
+APScheduler==3.10.4
+
+# GVM / Greenbone
+python-gvm==24.6.1
+
+# PDF export
 fpdf2==2.8.1
+
+# Configuração (variáveis de ambiente)
+pydantic-settings==2.6.1
+
+# Testes
+pytest==8.3.4
+pytest-asyncio==0.24.0
+httpx==0.27.2             # cliente assíncrono para TestClient FastAPI
