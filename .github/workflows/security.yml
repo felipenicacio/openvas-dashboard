@@ -112,26 +112,7 @@ jobs:
         working-directory: frontend
 
   # ── CodeQL ────────────────────────────────────────────────────────────────
-  codeql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    strategy:
-      matrix:
-        language: [python, javascript]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ matrix.language }}
-          queries: security-extended
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:${{ matrix.language }}"
+  # Análise CodeQL gerenciada pelo Default Setup do GitHub (Settings → Security).
+  # Job removido para evitar conflito: "advanced configuration cannot be processed
+  # when the default setup is enabled". O Default Setup cobre Python e JavaScript
+  # e já aparece como CodeQL #N ✅ nas Actions.
