@@ -59,10 +59,18 @@ async def _check_rate_limit(ip: str) -> None:
 
 
 def _get_client_ip(request: Request) -> str:
-    """Extrai IP do cliente, considerando X-Forwarded-For do nginx."""
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+    """
+    Extrai IP real do cliente via X-Real-IP (definido pelo nginx).
+
+    Não usa X-Forwarded-For: o primeiro valor é controlável pelo cliente e pode ser
+    forjado para contornar rate limiting. X-Real-IP é definido exclusivamente pelo
+    nginx e reflete o IP da conexão TCP recebida pelo proxy.
+
+    Em conexão direta (desenvolvimento), usa request.client.host.
+    """
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
     return request.client.host if request.client else "unknown"
 
 

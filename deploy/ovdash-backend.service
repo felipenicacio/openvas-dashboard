@@ -60,9 +60,26 @@ SystemCallErrorNumber=EPERM
 CapabilityBoundingSet=
 AmbientCapabilities=
 
-# Rede — apenas loopback necessário (nginx faz proxy)
+# ── Rede ─────────────────────────────────────────────────────────────────────
+# Dois perfis suportados — ajuste conforme o deployment:
+#
+# PERFIL A — GVM via socket Unix local (padrão, recomendado):
+#   GVM_SOCKET_PATH=/run/gvmd/gvmd.sock
+#   O processo só precisa de loopback; AF_UNIX já cobre o socket.
+#   IPAddressAllow abaixo protege tráfego TCP: apenas loopback (nginx → uvicorn).
+#
+# PERFIL B — GVM remoto via TLS (host separado):
+#   GVM_HOST=<ip-do-servidor-gvm>  GVM_PORT=9390
+#   Substitua IPAddressAllow pela linha comentada, colocando o IP real do GVM.
+#   Nunca use 0.0.0.0/0 — defina apenas o IP específico do servidor GVM.
+#
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# Perfil A — GVM local via socket Unix (padrão):
 IPAddressAllow=127.0.0.1/8 ::1/128
+# Perfil B — GVM remoto (descomentar e substituir <IP-GVM> pelo IP real):
+# IPAddressAllow=127.0.0.1/8 ::1/128 <IP-GVM>/32
+
 IPAddressDeny=any
 
 # Outros

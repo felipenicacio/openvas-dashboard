@@ -4,7 +4,7 @@
 
 ### Autenticação e sessão
 - **Argon2id** (argon2-cffi) substituiu comparação de senha em texto puro
-- **Cookie HttpOnly** substituiu token JWT em `localStorage` (elimina risco de XSS)
+- **Cookie HttpOnly** substituiu armazenamento do JWT em `localStorage`: o cookie `HttpOnly` é inacessível ao JavaScript, impedindo que XSS extraia o token de sessão
 - **SameSite=Strict** e **Secure=true** habilitados no cookie de sessão
 - **Claims JWT completos**: `sub`, `exp`, `iat`, `nbf`, `iss`, `aud`, `jti`, `role`
 - **Validação explícita** de issuer, audience e algoritmo (whitelist `["HS256"]`)
@@ -20,6 +20,7 @@
 ### Rate limiting
 - 5 tentativas de login por IP por minuto (in-memory)
 - Resposta `429 Too Many Requests` com header `Retry-After: 60`
+- IP extraído via `X-Real-IP` (definido pelo nginx) — não via `X-Forwarded-For`, que é controlável pelo cliente e pode ser forjado para bypass
 
 ### Security headers
 Todos os endpoints retornam:
@@ -31,8 +32,14 @@ Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
 Content-Security-Policy: default-src 'none'; script-src 'self'; ...
 ```
 
+### CSRF
+- Middleware valida header `Origin` (ou `Referer` como fallback) em toda requisição mutante (`POST`, `PUT`, `PATCH`, `DELETE`) sobre `/api/*`
+- Endpoint de login (`/api/auth/token`) isento — sem cookie pré-existente para proteger
+- Em deployments same-origin, browsers modernos não enviam `Origin` em requisições da mesma origem; a verificação bloqueia origens cruzadas não autorizadas
+- Complementa `SameSite=Strict` no cookie de sessão (defesa em profundidade)
+
 ### Outros controles
-- CORS sem wildcard: apenas origens explicitamente configuradas
+- CORS cross-origin desabilitado por padrão (same-origin deployment via nginx); habilitado apenas quando `CORS_ORIGINS` é definido explicitamente
 - Swagger/OpenAPI desabilitado por padrão (`ENABLE_API_DOCS=false`)
 - `/api/health` retorna apenas `{"status":"ok","version":"1.1.0"}`
 - `task_id` e `scan_id` validados como UUID RFC 4122 antes de chegar ao GVM
@@ -117,6 +124,6 @@ O workflow `.github/workflows/security.yml` executa:
 - Testes de segurança (`pytest backend/tests/test_security.py`)
 - `npm audit`: vulnerabilidades no frontend
 - TypeScript type check
-- CodeQL para Python e JavaScript
+- CodeQL para Python e JavaScript — via **GitHub Default Setup** (Settings → Security → Code scanning), não via `security.yml` (conflito com advanced configuration evitado)
 
 O `dependabot.yml` abre PRs semanais para dependências desatualizadas (pip, npm, GitHub Actions).
