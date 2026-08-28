@@ -76,7 +76,7 @@ def create_token(username: str, role: Role = Role.ADMIN) -> str:
         "exp": now + timedelta(minutes=settings.jwt_expire_minutes),
         "jti": jti,
     }
-    return _jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
+    return _jwt.encode(payload, settings.resolved_jwt_secret, algorithm=ALGORITHM)
 
 
 def set_auth_cookie(response: Response, token: str) -> None:
@@ -114,7 +114,7 @@ def _decode_token(token: str) -> dict:
     try:
         payload = _jwt.decode(
             token,
-            settings.jwt_secret,
+            settings.resolved_jwt_secret,
             algorithms=[ALGORITHM],          # whitelist explícita — rejeita outros algos
             issuer=settings.jwt_issuer,
             audience=settings.jwt_audience,
