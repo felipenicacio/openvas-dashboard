@@ -47,6 +47,17 @@ fi
 # ── Criar diretório de instalação ─────────────────────────────────────────────
 mkdir -p "$INSTALL_DIR"
 
+# ── Limpeza de layout legado ──────────────────────────────────────────────────
+# Versões antigas podiam deixar uma cópia aninhada em
+# /opt/openvas-dashboard/frontend/openvas-dashboard. Como os padrões de exclusão
+# do rsync podem preservar node_modules/dist dentro dela, --delete sozinho não
+# consegue remover o diretório e emite "cannot delete non-empty directory".
+LEGACY_FRONTEND_DIR="$INSTALL_DIR/frontend/openvas-dashboard"
+if [[ -d "$LEGACY_FRONTEND_DIR" ]]; then
+    echo "Removendo diretório legado: $LEGACY_FRONTEND_DIR"
+    rm -rf -- "$LEGACY_FRONTEND_DIR"
+fi
+
 # ── Copiar arquivos do repositório para /opt ──────────────────────────────────
 echo "Copiando arquivos para $INSTALL_DIR..."
 # IMPORTANTE: --exclude=data/ garante que o banco SQLite e arquivos WAL/SHM
