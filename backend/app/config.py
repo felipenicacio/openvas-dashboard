@@ -146,11 +146,16 @@ def validate_settings(s: Settings) -> None:
             "Defina ao menos um dos dois."
         )
 
-    # CORS em produção (não validado em development/test)
+    # CORS em produção — apenas aviso, não bloqueante.
+    # Quando nginx serve frontend e /api no mesmo domínio (same-origin),
+    # CORS_ORIGINS deve ficar vazio: nenhuma requisição cross-origin ocorre
+    # e o CORSMiddleware não é adicionado. Definir apenas para deployments
+    # onde frontend e API estão em origens distintas.
     if s.app_env.lower() == "production" and not s.cors_list:
-        errors.append(
-            "CORS_ORIGINS não definido. "
-            "Exemplo: CORS_ORIGINS=https://dashboard.sua-empresa.com"
+        log.warning(
+            "CORS_ORIGINS não definido — CORS cross-origin desabilitado. "
+            "Correto para deployments same-origin (nginx). "
+            "Defina CORS_ORIGINS apenas se frontend e API estiverem em origens distintas."
         )
 
     if errors:

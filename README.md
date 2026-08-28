@@ -4,12 +4,12 @@ Dashboard moderno para gestão de vulnerabilidades OpenVAS/GVM — inspirado em 
 
 ## Stack
 
-| Camada     | Tecnologia                                      |
-|------------|-------------------------------------------------|
-| Backend    | Python 3.11 · FastAPI · python-gvm · SQLite     |
-| Frontend   | React 18 · TypeScript · Tailwind CSS · Recharts |
-| Protocolo  | GMP (Greenbone Management Protocol) via TLS     |
-| Deploy     | systemd + nginx (bare metal)                    |
+| Camada    | Tecnologia                                      |
+|-----------|-------------------------------------------------|
+| Backend   | Python 3.11 · FastAPI · python-gvm · SQLite     |
+| Frontend  | React 18 · TypeScript · Tailwind CSS · Recharts |
+| Protocolo | GMP via socket Unix (local) ou TLS (remoto)     |
+| Deploy    | systemd + nginx (bare metal)                    |
 
 ## Funcionalidades
 
@@ -18,7 +18,7 @@ Dashboard moderno para gestão de vulnerabilidades OpenVAS/GVM — inspirado em 
 - **Hosts** — Cards com risk score visual, drill-down de vulnerabilidades por host
 - **Scans** — Lista tasks do GVM, inicia/para scans remotamente
 - **Sync automática** — Scheduler busca dados do GVM a cada N minutos (configurável)
-- **JWT Auth** — Login simples com token de sessão
+- **Sessão segura** — Autenticação via cookie HttpOnly (Argon2id + JWT, sem localStorage)
 
 ## Requisitos
 
@@ -26,81 +26,94 @@ Dashboard moderno para gestão de vulnerabilidades OpenVAS/GVM — inspirado em 
 - Python 3.11+
 - Node.js 20+
 - nginx
-- Acesso de rede ao servidor GVM (porta 9390 por padrão)
+- Acesso ao servidor GVM (socket Unix local ou TCP/TLS remoto)
 
 ```bash
 # Ubuntu / Debian
-apt install python3.11 python3.11-venv nodejs npm nginx -y
+apt install python3.11 python3.11-venv nodejs npm nginx rsync -y
 
 # RHEL / Rocky / AlmaLinux
-dnf install python3.11 nodejs npm nginx -y
+dnf install python3.11 nodejs npm nginx rsync -y
 ```
 
-## Instalação (automática)
+## Instalação
 
 ```bash
 # 1. Clone o repositório
 git clone https://github.com/felipenicacio/openvas-dashboard.git
 cd openvas-dashboard
 
-# 2. Execute o instalador como root
+# 2. Crie o diretório de destino e configure o .env
+sudo mkdir -p /opt/openvas-dashboard
+sudo cp .env.example /opt/openvas-dashboard/.env
+sudo nano /opt/openvas-dashboard/.env   # preencha os valores obrigatórios
+
+# 3. Execute o instalador como root (detecta o diretório do clone automaticamente)
 sudo bash deploy/install.sh
 ```
 
-O script faz automaticamente:
-- Cria o usuário de sistema `ovdash`
-- Instala os arquivos em `/opt/openvas-dashboard/`
+O instalador:
+- Cria o usuário de sistema `ovdash` (se não existir)
+- Copia os arquivos do repositório para `/opt/openvas-dashboard/`
 - Cria o virtualenv Python e instala dependências
-- Builda o frontend e copia para `/var/www/ovdash/`
-- Configura e ativa o site no nginx
+- Builda o frontend React
 - Registra e inicia o serviço systemd `ovdash-backend`
-
-Após a instalação, edite o `.env` com os dados do seu GVM:
-
-```bash
-sudo nano /opt/openvas-dashboard/.env
-sudo systemctl restart ovdash-backend
-```
-
-Acesse: **http://\<ip-do-servidor\>**
 
 ## Configuração (.env)
 
+Copie `.env.example` e preencha os campos obrigatórios:
+
 ```dotenv
-# Conexão GVM
-GVM_HOST=192.168.1.100
-GVM_PORT=9390
+# ── Conexão GVM ───────────────────────────────────────────────────────────────
+# Perfil A — GVM local via socket Unix (recomendado):
+GVM_SOCKET_PATH=/run/gvmd/gvmd.sock
 GVM_USERNAME=admin
 GVM_PASSWORD=senha-do-gvm
 
-# Autenticação do dashboard
-APP_USERNAME=admin
-APP_PASSWORD=sua-senha-aqui
+# Perfil B — GVM remoto via TLS (comentar GVM_SOCKET_PATH acima):
+# GVM_HOST=192.168.1.100
+# GVM_PORT=9390
+# GVM_USERNAME=admin
+# GVM_PASSWORD=senha-do-gvm
 
-# JWT (obrigatório — gere com: openssl rand -hex 32)
-JWT_SECRET=seu-segredo-aqui
+# ── Autenticação do dashboard ─────────────────────────────────────────────────
+APP_USERNAME=operador           # nome de usuário para login
+APP_PASSWORD_HASH=              # hash Argon2id — gere com: python backend/generate_hash.py
 
-# Sincronização automática (minutos)
+# ── JWT ───────────────────────────────────────────────────────────────────────
+JWT_SECRET=                     # mínimo 32 bytes — gere com: openssl rand -hex 32
+JWT_EXPIRE_MINUTES=30
+
+# ── Cookie ────────────────────────────────────────────────────────────────────
+COOKIE_SECURE=true              # false apenas em desenvolvimento HTTP local
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# Deixar vazio quando nginx serve frontend e /api no mesmo domínio (same-origin).
+# Definir apenas se frontend e API estiverem em origens distintas:
+# CORS_ORIGINS=https://dashboard.sua-empresa.com
+
+# ── Outros ───────────────────────────────────────────────────────────────────
+APP_ENV=production
+ENABLE_API_DOCS=false           # NUNCA true em produção
 SYNC_INTERVAL_MINUTES=30
-
-# Onde o SQLite fica armazenado
-DATA_DIR=/opt/openvas-dashboard/data
 ```
 
-## Usando Unix Socket (GVM local)
-
-Se o GVM rodar na mesma máquina:
-
-```dotenv
-GVM_SOCKET_PATH=/run/gvmd/gvmd.sock
-# deixe GVM_HOST vazio
-```
+### Perfil A — GVM via socket Unix (recomendado)
 
 Conceda acesso ao socket para o usuário do serviço:
 
 ```bash
 sudo usermod -aG gvmd ovdash
 sudo systemctl restart ovdash-backend
+```
+
+### Perfil B — GVM remoto via TLS
+
+Edite `/etc/systemd/system/ovdash-backend.service` e adicione o IP do servidor GVM
+à diretiva `IPAddressAllow` (veja comentários no arquivo). Recarregue:
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl restart ovdash-backend
 ```
 
 ## Gerenciamento do serviço
@@ -114,34 +127,34 @@ journalctl -u ovdash-backend -f
 
 # Reiniciar (após alterar .env)
 systemctl restart ovdash-backend
-
-# Parar / iniciar
-systemctl stop ovdash-backend
-systemctl start ovdash-backend
 ```
 
 ## Atualização
 
-```bash
-cd /caminho/para/openvas-dashboard
-git pull
+O script de instalação é idempotente — execute novamente após `git pull`:
 
-# Reinstala dependências e rebuilda o frontend
+```bash
+cd openvas-dashboard
+git pull
 sudo bash deploy/install.sh
 ```
 
-O script de instalação é idempotente — pode ser executado novamente sem perda de dados ou configuração.
+## Sincronização manual
 
-## Primeira sincronização
-
-Após configurar o `.env`, faça login no dashboard e clique em **"Sincronizar GVM"** na sidebar, ou via curl:
+Faça login no dashboard e clique em **"Sincronizar GVM"** na sidebar, ou via curl
+(a sessão é gerenciada por cookie — use `-c`/`-b` para persistir):
 
 ```bash
-TOKEN=$(curl -s -X POST http://localhost/api/auth/token \
-  -d "username=admin&password=sua-senha" | jq -r .access_token)
+# 1. Login (salva cookie na sessão; login é isento da verificação CSRF)
+curl -s -X POST https://<servidor>/api/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"username":"operador","password":"sua-senha"}' \
+  -c cookies.txt
 
-curl -X POST http://localhost/api/scans/sync \
-  -H "Authorization: Bearer $TOKEN"
+# 2. Sincronização manual (inclui Origin para passar o middleware CSRF)
+curl -s -X POST https://<servidor>/api/scans/sync \
+  -H "Origin: https://<servidor>" \
+  -b cookies.txt
 ```
 
 ## Desenvolvimento local
@@ -151,8 +164,8 @@ curl -X POST http://localhost/api/scans/sync \
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp ../.env.example .env  # edite conforme necessário
-DATA_DIR=./data uvicorn app.main:app --reload --port 8000
+cp ../.env.example .env  # edite: APP_ENV=development, COOKIE_SECURE=false
+APP_ENV=development DATA_DIR=./data uvicorn app.main:app --reload --port 8000
 
 # Frontend (outro terminal)
 cd frontend
@@ -167,45 +180,55 @@ npm run dev
 openvas-dashboard/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py           # FastAPI + scheduler
-│   │   ├── config.py         # Settings (pydantic-settings)
+│   │   ├── main.py           # FastAPI + middleware + scheduler
+│   │   ├── config.py         # Settings (pydantic-settings, fail-secure)
+│   │   ├── csrf.py           # Middleware CSRF (Origin/Referer)
+│   │   ├── auth.py           # JWT + RBAC + cookie HttpOnly
+│   │   ├── security.py       # Argon2id, revogação de JTI
 │   │   ├── gvm_client.py     # Wrapper GMP (python-gvm)
 │   │   ├── sync.py           # Sync GVM → SQLite
 │   │   ├── database.py       # SQLite cache + init
-│   │   ├── auth.py           # JWT
 │   │   ├── models/schemas.py # Pydantic schemas
-│   │   └── routers/          # dashboard · vulns · hosts · scans · auth
+│   │   └── routers/          # auth · dashboard · vulns · hosts · scans
+│   ├── tests/
+│   │   └── test_security.py  # Testes de segurança (pytest)
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
 │   │   ├── pages/            # Dashboard · Vulnerabilities · Hosts · Scans
 │   │   ├── components/       # Layout · SeverityBadge · RiskGauge · StatCard
-│   │   ├── api/client.ts     # Axios + interceptors
+│   │   ├── api/client.ts     # Axios + interceptors (cookie auth)
 │   │   └── types/index.ts    # TypeScript types
 │   └── package.json
 ├── deploy/
-│   ├── ovdash-backend.service  # Systemd unit
-│   ├── nginx.conf              # Configuração nginx (host)
-│   └── install.sh              # Script de instalação automatizado
-└── .env.example
+│   ├── ovdash-backend.service  # Systemd unit (hardened)
+│   ├── nginx.conf              # Configuração nginx (proxy reverso)
+│   └── install.sh              # Script de instalação
+├── .env.example
+└── README-security.md          # Detalhes de segurança e checklist de produção
 ```
 
 ## API
 
-Documentação interativa disponível em `http://<servidor>/api/docs` após a instalação.
+Autenticação via cookie de sessão HttpOnly (definido no login, enviado automaticamente
+pelo browser). Documentação interativa disponível quando `ENABLE_API_DOCS=true`
+(apenas em desenvolvimento).
 
-| Endpoint                         | Método | Descrição                      |
-|----------------------------------|--------|--------------------------------|
-| `/api/auth/token`                | POST   | Login (retorna JWT)            |
-| `/api/dashboard/summary`         | GET    | KPIs, trend, top hosts         |
-| `/api/vulnerabilities`           | GET    | Lista com filtros e paginação  |
-| `/api/vulnerabilities/{id}`      | GET    | Detalhe de uma vuln            |
-| `/api/hosts`                     | GET    | Lista hosts com risk score     |
-| `/api/hosts/{ip}`                | GET    | Host + vulnerabilidades        |
-| `/api/scans`                     | GET    | Tasks do GVM                   |
-| `/api/scans/{id}/start`          | POST   | Inicia scan                    |
-| `/api/scans/{id}/stop`           | POST   | Para scan                      |
-| `/api/scans/sync`                | POST   | Sincronização manual com GVM   |
+| Endpoint                    | Método | Auth   | Descrição                     |
+|-----------------------------|--------|--------|-------------------------------|
+| `/api/auth/token`           | POST   | —      | Login (define cookie sessão)  |
+| `/api/auth/logout`          | POST   | ✓      | Logout (revoga sessão)        |
+| `/api/auth/me`              | GET    | ✓      | Perfil do usuário autenticado |
+| `/api/dashboard/summary`    | GET    | ✓      | KPIs, trend, top hosts        |
+| `/api/vulnerabilities`      | GET    | ✓      | Lista com filtros e paginação |
+| `/api/vulnerabilities/{id}` | GET    | ✓      | Detalhe de uma vulnerab.      |
+| `/api/hosts`                | GET    | ✓      | Lista hosts com risk score    |
+| `/api/hosts/{ip}`           | GET    | ✓      | Host + vulnerabilidades       |
+| `/api/scans`                | GET    | ✓      | Tasks do GVM                  |
+| `/api/scans/{id}/start`     | POST   | ✓ ADMIN  | Inicia scan                   |
+| `/api/scans/{id}/stop`      | POST   | ✓ ADMIN  | Para scan                     |
+| `/api/scans/sync`           | POST   | ✓ ANALYST| Sincronização manual com GVM  |
+| `/api/health`               | GET    | —      | Status mínimo do serviço      |
 
 ## Licença
 

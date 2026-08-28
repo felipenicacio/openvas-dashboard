@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import get_settings
+from .csrf import CSRFMiddleware
 from .database import init_db
 from .sync import run_sync
 
@@ -144,21 +145,35 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — sem wildcard, apenas origins explicitamente configuradas
+# CORS — adicionado apenas quando há origens explicitamente configuradas.
+# Em deployments same-origin (nginx serve frontend e /api no mesmo domínio),
+# CORS_ORIGINS deve ficar vazio: nenhum cross-origin request ocorre e o
+# CORSMiddleware não precisa ser ativado.
 cors_origins = settings.cors_list
 if not cors_origins and settings.is_development:
     cors_origins = ["http://localhost:5173", "http://localhost:3000"]
     log.warning("SECURITY WARNING: CORS em modo desenvolvimento — %s", cors_origins)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,           # necessário para cookies
-    allow_methods=["GET", "POST"],    # apenas métodos utilizados
-    allow_headers=["Content-Type"],   # apenas headers necessários
-)
+if cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,           # necessário para cookies
+        allow_methods=["GET", "POST"],    # apenas métodos utilizados
+        allow_headers=["Content-Type"],   # apenas headers necessários
+    )
+else:
+    log.info("CORS cross-origin desabilitado (same-origin deployment).")
 
 app.add_middleware(SecurityHeadersMiddleware)
+
+# CSRF — valida Origin/Referer em requisições mutantes para /api/*
+# Isenção: /api/auth/token (login público, sem cookie pré-existente)
+app.add_middleware(
+    CSRFMiddleware,
+    allowed_origins=cors_origins,
+    is_development=settings.is_development,
+)
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(auth.router)
