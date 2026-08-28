@@ -67,11 +67,7 @@ O instalador:
 
 ## Gerenciamento de Secrets
 
-A partir da v1.2.0, `GVM_PASSWORD` e `JWT_SECRET` são gerenciados via **systemd credentials** (`LoadCredential`), não via `.env`. O modelo antigo (`.env`) ainda funciona por compatibilidade, mas gera um aviso de deprecação e será removido na v1.3.0.
-
-### Por que sair do .env
-
-O `.env` expõe secrets em texto claro em backups de filesystem, listagem de processos (`/proc/<pid>/environ`), histórico shell quando editado com `echo`, e ferramentas de auditoria que inspecionam variáveis de ambiente. `APP_PASSWORD_HASH` permanece no `.env` porque é um hash Argon2id irreversível — não é um secret recuperável.
+`GVM_PASSWORD` e `JWT_SECRET` são gerenciados por **systemd credentials** (`LoadCredential`). `APP_PASSWORD_HASH` permanece na configuração da aplicação por ser um hash Argon2id não reversível.
 
 ### Criando os arquivos de credential
 
@@ -94,59 +90,32 @@ sudo sudoedit /etc/openvas-dashboard/credentials/gvm_password
 # Alternativa: read -rs GVM_PASS && printf '%s' "$GVM_PASS" | sudo tee /etc/openvas-dashboard/credentials/gvm_password >/dev/null && unset GVM_PASS
 ```
 
-Ambos os arquivos devem ter permissão `600` (apenas root lê/escreve). O systemd entrega o conteúdo via `CREDENTIALS_DIRECTORY` ao processo sem expor via ambiente.
+Ambos os arquivos devem ter permissão `600` (apenas root lê/escreve). O systemd entrega o conteúdo via `CREDENTIALS_DIRECTORY` ao processo sem expor os valores como variáveis de ambiente.
 
 ### Como usar LoadCredential
 
-O `install.sh` gera automaticamente um drop-in em `/etc/systemd/system/ovdash-backend.service.d/credentials.conf` com as diretivas `LoadCredential` para cada credential que já existe em `/etc/openvas-dashboard/credentials/`. Isso garante backward compatibility: se um credential ainda não existe, o serviço inicia em modo legacy (`.env`) sem falhar.
+O `install.sh` gera automaticamente um drop-in em `/etc/systemd/system/ovdash-backend.service.d/credentials.conf` com as diretivas `LoadCredential` para os arquivos de credential configurados em `/etc/openvas-dashboard/credentials/`.
 
-Após criar os arquivos de credential, execute `install.sh` novamente para atualizar o drop-in:
+Após criar os arquivos de credential, execute `install.sh` para atualizar o drop-in:
 
 ```bash
 sudo bash deploy/install.sh
 systemctl cat ovdash-backend | grep LoadCredential   # confirmar que aparece
 ```
 
-O systemd monta os arquivos em um diretório temporário e define `CREDENTIALS_DIRECTORY` apontando para ele. A aplicação lê automaticamente via `resolve_secret()` em `config.py`.
-
-### Migrando de .env para systemd credentials
-
-Se você tem `JWT_SECRET` ou `GVM_PASSWORD` no `.env`, use o script de migração dedicado:
-
-```bash
-# Migra JWT_SECRET automaticamente (sem exibir no terminal).
-# GVM_PASSWORD requer migração manual (pode conter caracteres especiais).
-sudo bash deploy/migrate_credentials.sh
-
-# Após migrar, re-execute o instalador para atualizar o drop-in systemd:
-sudo bash deploy/install.sh
-
-# Confirme que o serviço carrega os credentials:
-systemctl cat ovdash-backend | grep LoadCredential
-sudo systemctl status ovdash-backend
-```
-
-O script `migrate_credentials.sh` instrui a migração manual segura do `GVM_PASSWORD`. Após confirmar que o serviço inicia corretamente, remova os secrets do `.env`:
-
-```bash
-sudo sed -i '/^JWT_SECRET=/d' /opt/openvas-dashboard/.env
-# GVM_PASSWORD: remova a linha manualmente com sudoedit
-sudo systemctl restart ovdash-backend
-```
+O systemd monta os arquivos em um diretório temporário e define `CREDENTIALS_DIRECTORY` apontando para ele. A aplicação lê automaticamente os credentials via `resolve_secret()` em `config.py`.
 
 ### Validação pós-instalação
 
 ```bash
 # Verificar permissões dos arquivos de credential
-stat /etc/openvas-dashboard/credentials/jwt_secret    # deve ser 600, root:root
-stat /etc/openvas-dashboard/credentials/gvm_password  # deve ser 600, root:root
+stat /etc/openvas-dashboard/credentials/jwt_secret     # deve ser 600, root:root
+stat /etc/openvas-dashboard/credentials/gvm_password   # deve ser 600, root:root
 
 # Verificar que o serviço carrega os credentials
+systemctl cat ovdash-backend | grep LoadCredential
 systemctl status ovdash-backend
-journalctl -u ovdash-backend -n 50  # procurar por erros de credential
-
-# Confirmar que .env não contém secrets (após migração)
-grep -E "^JWT_SECRET=|^GVM_PASSWORD=" /opt/openvas-dashboard/.env && echo "ATENÇÃO: ainda há secrets no .env" || echo "OK: secrets não estão no .env"
+journalctl -u ovdash-backend -n 50
 ```
 
 ### Troubleshooting
@@ -160,24 +129,20 @@ O caminho é um diretório ou socket. Verifique que o arquivo existe e é um arq
 **Erro: "Sem permissão para ler systemd credential"**
 Permissões incorretas. Corrija com: `sudo chmod 600 /etc/openvas-dashboard/credentials/gvm_password`.
 
-**Warning: "Legacy GVM_PASSWORD environment variable is deprecated"**
-O serviço está usando o valor do `.env` em vez do credential. Crie o arquivo de credential e remova a variável do `.env`.
-
 **Erro: "systemd credential 'gvm_password' excede o limite de 4096 bytes"**
 O arquivo de credential é maior que 4096 bytes. Isso não é uma senha válida — verifique o conteúdo do arquivo.
 
 ---
 
-## Configuração (.env)
+## Configuração da aplicação (.env)
 
-Copie `.env.example` e preencha os campos obrigatórios. `GVM_PASSWORD` e `JWT_SECRET` são gerenciados via systemd credentials (veja seção acima); os demais campos permanecem no `.env`:
+O `.env` é utilizado para configurações não secretas da aplicação e para `APP_PASSWORD_HASH`. `GVM_PASSWORD` e `JWT_SECRET` são fornecidos exclusivamente pelos systemd credentials descritos acima.
 
 ```dotenv
 # ── Conexão GVM ───────────────────────────────────────────────────────────────
 # Perfil A — GVM local via socket Unix (recomendado):
 GVM_SOCKET_PATH=/run/gvmd/gvmd.sock
 GVM_USERNAME=admin
-# GVM_PASSWORD: não coloque aqui — use systemd credential (veja Gerenciamento de Secrets)
 
 # Perfil B — GVM remoto via TLS (comentar GVM_SOCKET_PATH acima):
 # GVM_HOST=192.168.1.100
@@ -187,10 +152,8 @@ GVM_USERNAME=admin
 # ── Autenticação do dashboard ─────────────────────────────────────────────────
 APP_USERNAME=operador           # nome de usuário para login
 APP_PASSWORD_HASH=              # hash Argon2id — gere com: python backend/generate_hash.py
-# (APP_PASSWORD_HASH é um hash irreversível, pode permanecer no .env)
 
 # ── JWT ───────────────────────────────────────────────────────────────────────
-# JWT_SECRET: não coloque aqui — use systemd credential (veja Gerenciamento de Secrets)
 JWT_EXPIRE_MINUTES=30
 
 # ── Cookie ────────────────────────────────────────────────────────────────────
@@ -234,7 +197,7 @@ systemctl status ovdash-backend
 # Logs em tempo real
 journalctl -u ovdash-backend -f
 
-# Reiniciar (após alterar .env)
+# Reiniciar após alterar a configuração
 systemctl restart ovdash-backend
 ```
 
@@ -312,8 +275,7 @@ openvas-dashboard/
 ├── deploy/
 │   ├── ovdash-backend.service  # Systemd unit (hardened)
 │   ├── nginx.conf              # Configuração nginx (proxy reverso)
-│   ├── install.sh              # Script de instalação
-│   └── migrate_credentials.sh  # Migração de secrets do .env para systemd credentials
+│   └── install.sh              # Script de instalação
 ├── .env.example
 └── README-security.md          # Detalhes de segurança e checklist de produção
 ```
