@@ -33,12 +33,12 @@ _SEV_MAP = {
 def _gmp_session() -> Generator[Gmp, None, None]:
     """Abre uma sessão autenticada com o GVM e fecha ao sair."""
     if settings.gvm_socket_path:
-        conn = UnixSocketConnection(path=settings.gvm_socket_path)
+        conn = UnixSocketConnection(path=settings.gvm_socket_path, timeout=300)
     else:
         conn = TLSConnection(
             hostname=settings.gvm_host,
             port=settings.gvm_port,
-            timeout=30,
+            timeout=300,
         )
     with Gmp(connection=conn, transform=EtreeTransform()) as gmp:
         gmp.authenticate(settings.gvm_username, settings.gvm_password)
@@ -160,36 +160,41 @@ def fetch_all_results() -> list[dict]:
     Retorna lista de dicts prontos para inserção no SQLite.
     """
     results = []
+
+    # 1. Coleta IDs em uma sessão e fecha
+    task_list = []
     try:
         with _gmp_session() as gmp:
             tasks_xml = gmp.get_tasks(filter_string="status=Done rows=-1")
-            tasks = tasks_xml.findall("task")
-            log.info("GVM: %d tasks concluídas encontradas", len(tasks))
-
-            for task in tasks:
+            for task in tasks_xml.findall("task"):
                 task_name = _txt(task, "name")
                 last_rpt  = task.find("last_report/report")
                 if last_rpt is None:
                     continue
-                report_id = last_rpt.get("id","")
-
-                try:
-                    report_xml = gmp.get_report(
-                        report_id=report_id,
-                        filter_string="rows=-1 levels=hmlg",
-                        ignore_pagination=True,
-                        details=True,
-                    )
-                    for res_el in report_xml.findall(".//result"):
-                        parsed = _parse_result(res_el, task_name, report_id)
-                        if parsed:
-                            results.append(parsed)
-                except Exception as e:
-                    log.warning("Erro ao buscar report %s: %s", report_id, e)
-
+                report_id = last_rpt.get("id", "")
+                task_id = task.get("id", "")
+                if report_id:
+                    task_list.append((task_name, report_id, task_id))
     except Exception as e:
         log.error("GVM connection error: %s", e)
         raise
+
+    log.info("GVM: %d tasks concluídas encontradas", len(task_list))
+
+    # 2. Busca resultados por task usando get_results (evita container report)
+    for task_name, report_id, task_id in task_list:
+        try:
+            with _gmp_session() as gmp:
+                res_xml = gmp.get_results(
+                    filter_string=f"task_id={task_id} rows=-1 levels=hmlg",
+                    details=True,
+                )
+                for res_el in res_xml.findall(".//result"):
+                    parsed = _parse_result(res_el, task_name, report_id)
+                    if parsed:
+                        results.append(parsed)
+        except Exception as e:
+            log.warning("Erro ao buscar results da task %s: %s", task_id, e)
 
     log.info("GVM: %d resultados coletados", len(results))
     return results

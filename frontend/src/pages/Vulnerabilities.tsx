@@ -4,8 +4,8 @@ import {
   useReactTable, getCoreRowModel, flexRender,
   createColumnHelper, SortingState, getSortedRowModel,
 } from '@tanstack/react-table'
-import { Search, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, X, FileDown } from 'lucide-react'
-import { getVulns, getScans } from '../api/client'
+import { Search, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { getVulns } from '../api/client'
 import { Vulnerability, VulnerabilityList } from '../types'
 import SeverityBadge from '../components/SeverityBadge'
 import { format } from 'date-fns'
@@ -76,48 +76,12 @@ const columns = [
 ]
 
 export default function Vulnerabilities() {
-  const [page, setPage]             = useState(1)
-  const [search, setSearch]         = useState('')
-  const [debouncedSearch, setDS]    = useState('')
-  const [sevFilter, setSevFilter]   = useState<string[]>([])
-  const [sorting, setSorting]       = useState<SortingState>([{ id:'cvss', desc:true }])
-  const [expanded, setExpanded]     = useState<Vulnerability | null>(null)
-  const [pdfScanId, setPdfScanId]   = useState('')
-  const [pdfLoading, setPdfLoading] = useState(false)
-
-  const { data: scansData } = useQuery({
-    queryKey: ['scans-for-pdf'],
-    queryFn: () => getScans().then(r => r.data as Array<{ id: string; name: string }>),
-  })
-
-  const handleExportPdf = async () => {
-    setPdfLoading(true)
-    try {
-      const token = localStorage.getItem('token')
-      const url = pdfScanId
-        ? `/api/reports/pdf?scan_id=${encodeURIComponent(pdfScanId)}`
-        : '/api/reports/pdf'
-      const res = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!res.ok) throw new Error('Export failed')
-      const blob = await res.blob()
-      const blobUrl = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = blobUrl
-      const disp = res.headers.get('Content-Disposition') || ''
-      const match = disp.match(/filename="([^"]+)"/)
-      a.download = match ? match[1] : 'openvas-report.pdf'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(blobUrl)
-    } catch (err) {
-      console.error('PDF export error:', err)
-    } finally {
-      setPdfLoading(false)
-    }
-  }
+  const [page, setPage]           = useState(1)
+  const [search, setSearch]       = useState('')
+  const [debouncedSearch, setDS]  = useState('')
+  const [sevFilter, setSevFilter] = useState<string[]>([])
+  const [sorting, setSorting]     = useState<SortingState>([{ id:'cvss', desc:true }])
+  const [expanded, setExpanded]   = useState<Vulnerability | null>(null)
 
   const debounce = useCallback((val: string) => {
     setSearch(val)
@@ -157,37 +121,11 @@ export default function Vulnerabilities() {
   return (
     <div className="p-6 space-y-4">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold text-white">Vulnerabilidades</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            {data ? `${data.total.toLocaleString()} achados` : 'Carregando…'}
-          </p>
-        </div>
-
-        {/* PDF Export controls */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <select
-            value={pdfScanId}
-            onChange={e => setPdfScanId(e.target.value)}
-            className="input py-1.5 text-sm min-w-[160px]"
-          >
-            <option value="">Todos os scans</option>
-            {(scansData ?? []).map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-          <button
-            onClick={handleExportPdf}
-            disabled={pdfLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg
-                       bg-blue-600 hover:bg-blue-500 text-white transition-colors
-                       disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <FileDown size={15} />
-            {pdfLoading ? 'Gerando…' : 'Exportar PDF'}
-          </button>
-        </div>
+      <div>
+        <h1 className="text-xl font-bold text-white">Vulnerabilidades</h1>
+        <p className="text-sm text-gray-400 mt-0.5">
+          {data ? `${data.total.toLocaleString()} achados` : 'Carregando…'}
+        </p>
       </div>
 
       {/* Filters */}

@@ -25,6 +25,11 @@ _SEV_COLORS = {
 _SEV_WEIGHTS = {"Critical": 10.0, "High": 7.0, "Medium": 4.0, "Low": 1.5, "Log": 0.1}
 
 
+
+def _safe(text: str) -> str:
+    """Remove/replace chars unsupported by fpdf2 Helvetica (latin-1 only)."""
+    return text.encode("latin-1", errors="replace").decode("latin-1")
+
 @router.get("/pdf")
 async def export_pdf(
     user: CurrentUser,
@@ -160,10 +165,10 @@ async def export_pdf(
         sev_rgb  = _SEV_COLORS.get(sev, (107, 114, 128))
         cvss     = row["cvss"] or 0.0
         host     = (row["host"] or "")[:22]
-        port     = (row["port"] or "—")[:8]
+        port     = (row["port"] or "-")[:8]
         name     = (row["nvt_name"] or "")[:72]
         cves_raw = row["cves"] or ""
-        cves_str = ", ".join(c for c in cves_raw.split(",") if c)[:26] if cves_raw else "—"
+        cves_str = ", ".join(c for c in cves_raw.split(",") if c)[:26] if cves_raw else "-"
         first    = ""
         if row["first_seen"]:
             try:
