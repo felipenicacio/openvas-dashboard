@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { triggerSync } from '../api/client'
+import { triggerSync, logout as apiLogout } from '../api/client'
 import toast from 'react-hot-toast'
 
 const nav = [
@@ -32,8 +32,7 @@ export default function Layout() {
   })
 
   const logout = () => {
-    localStorage.removeItem('token')
-    navigate('/login')
+    apiLogout().finally(() => navigate('/login'))
   }
 
   return (

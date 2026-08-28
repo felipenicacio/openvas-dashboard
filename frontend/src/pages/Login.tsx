@@ -14,8 +14,7 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await login(username, password)
-      localStorage.setItem('token', res.data.access_token)
+      await login({ username, password })
       navigate('/dashboard')
     } catch {
       toast.error('Usuário ou senha inválidos.')
