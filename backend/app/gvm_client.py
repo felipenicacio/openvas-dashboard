@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from typing import Generator
 
 from gvm.connections import TLSConnection, UnixSocketConnection
-from gvm.protocols.gmp import Gmpv224 as Gmp
+from gvm.protocols.gmp import GMPv224 as Gmp
 from gvm.transforms import EtreeTransform
 from lxml import etree
 

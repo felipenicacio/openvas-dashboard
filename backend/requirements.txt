@@ -2,30 +2,31 @@
 # Gerado para Python 3.11+
 
 # Framework
-fastapi==0.115.6
-uvicorn[standard]==0.32.1
-python-multipart==0.0.12
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+python-multipart==0.0.32
+starlette==1.6.0              # pinado explicitamente para cobrir CVEs de versões < 1.3.1
 
 # Segurança — autenticação e criptografia
-argon2-cffi==23.1.0       # Argon2id password hashing (OWASP recomendado)
-python-jose[cryptography]==3.3.0  # JWT (HS256)
+argon2-cffi==25.1.0           # Argon2id password hashing (OWASP recomendado)
+PyJWT==2.13.0                 # JWT (HS256) — mantido ativamente, sem CVEs conhecidos
 
 # Banco de dados (cache local SQLite)
-aiosqlite==0.20.0
+aiosqlite==0.22.1
 
 # Scheduler
-APScheduler==3.10.4
+APScheduler==3.11.3
 
 # GVM / Greenbone
-python-gvm==24.6.1
+python-gvm==24.6.0
 
 # PDF export
-fpdf2==2.8.1
+fpdf2==2.8.8
 
 # Configuração (variáveis de ambiente)
-pydantic-settings==2.6.1
+pydantic-settings==2.15.0
 
 # Testes
-pytest==8.3.4
-pytest-asyncio==0.24.0
-httpx==0.27.2             # cliente assíncrono para TestClient FastAPI
+pytest==9.1.1
+pytest-asyncio==1.4.0
+httpx==0.28.1                 # cliente assíncrono para TestClient FastAPI

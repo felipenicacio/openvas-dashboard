@@ -22,8 +22,8 @@ from typing import Annotated, Optional
 from dataclasses import dataclass
 
 from fastapi import Cookie, Depends, HTTPException, Response, status
-from jose import JWTError, jwt
-from jose.exceptions import ExpiredSignatureError
+import jwt as _jwt
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
 from .config import get_settings
 from .security import generate_jti, is_token_revoked
@@ -76,7 +76,7 @@ def create_token(username: str, role: Role = Role.ADMIN) -> str:
         "exp": now + timedelta(minutes=settings.jwt_expire_minutes),
         "jti": jti,
     }
-    return jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
+    return _jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
 
 
 def set_auth_cookie(response: Response, token: str) -> None:
@@ -112,7 +112,7 @@ def _decode_token(token: str) -> dict:
     tokens expirados e tokens revogados.
     """
     try:
-        payload = jwt.decode(
+        payload = _jwt.decode(
             token,
             settings.jwt_secret,
             algorithms=[ALGORITHM],          # whitelist explícita — rejeita outros algos
@@ -125,7 +125,7 @@ def _decode_token(token: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Sessão expirada.",
         )
-    except JWTError:
+    except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Sessão inválida.",

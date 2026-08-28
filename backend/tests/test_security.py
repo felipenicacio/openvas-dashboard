@@ -20,7 +20,7 @@ from unittest.mock import patch, AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from jose import jwt
+import jwt
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────

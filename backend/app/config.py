@@ -146,8 +146,8 @@ def validate_settings(s: Settings) -> None:
             "Defina ao menos um dos dois."
         )
 
-    # CORS em produção
-    if not s.is_development and not s.cors_list:
+    # CORS em produção (não validado em development/test)
+    if s.app_env.lower() == "production" and not s.cors_list:
         errors.append(
             "CORS_ORIGINS não definido. "
             "Exemplo: CORS_ORIGINS=https://dashboard.sua-empresa.com"
