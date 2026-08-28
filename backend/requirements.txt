@@ -27,6 +27,6 @@ fpdf2==2.8.8
 pydantic-settings==2.15.0
 
 # Testes
-pytest==9.1.1
+pytest==9.0.3
 pytest-asyncio==1.4.0
 httpx==0.28.1                 # cliente assíncrono para TestClient FastAPI
