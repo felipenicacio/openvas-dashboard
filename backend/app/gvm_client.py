@@ -38,6 +38,9 @@ def _gmp_session() -> Generator[Gmp, None, None]:
         conn = TLSConnection(
             hostname=settings.gvm_host,
             port=settings.gvm_port,
+            cafile=settings.gvm_tls_ca_file,
+            certfile=settings.gvm_tls_cert_file,
+            keyfile=settings.gvm_tls_key_file,
             timeout=300,
         )
     with Gmp(connection=conn, transform=EtreeTransform()) as gmp:
