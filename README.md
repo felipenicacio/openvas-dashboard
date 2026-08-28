@@ -4,7 +4,7 @@ Dashboard moderno para gestão de vulnerabilidades OpenVAS/GVM — inspirado em 
 
 ## Preview
 
-![OpenVAS Dashboard — Dashboard principal](docs/images/dashboard-preview.jpg)
+![OpenVAS Dashboard — Dashboard principal](docs/images/dashboard-preview.png)
 
 > Visão consolidada da postura de vulnerabilidades, com indicadores de exposição, distribuição por severidade, hosts afetados, scans ativos e evolução mensal.
 
