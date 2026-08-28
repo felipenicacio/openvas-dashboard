@@ -21,6 +21,18 @@ router = APIRouter(prefix="/api/vulnerabilities", tags=["vulnerabilities"])
 _MAX_PAGE_SIZE = 200
 
 
+def _serialize_vulnerability(row):
+    """Converte a representação SQLite para o contrato JSON esperado pelo frontend."""
+    item = dict(row)
+    raw_cves = item.get("cves") or ""
+    item["cves"] = [
+        cve.strip()
+        for cve in raw_cves.split(",")
+        if cve.strip()
+    ]
+    return item
+
+
 @router.get("")
 async def list_vulnerabilities(
     user: RequireViewer,
@@ -67,7 +79,7 @@ async def list_vulnerabilities(
                 "page": page,
                 "page_size": page_size,
                 "pages": max(1, -(-total // page_size)),
-                "items": [dict(r) for r in rows],
+                "items": [_serialize_vulnerability(r) for r in rows],
             }
     except HTTPException:
         raise
@@ -86,7 +98,7 @@ async def get_vulnerability(vuln_id: int, user: RequireViewer):
             )
             if not rows:
                 raise HTTPException(status_code=404, detail="Vulnerabilidade não encontrada.")
-            return dict(rows[0])
+            return _serialize_vulnerability(rows[0])
     except HTTPException:
         raise
     except Exception:
