@@ -12,12 +12,12 @@
 # Instalação seletiva por job (princípio de menor dependência):
 #   pip-audit job  → pip install "pip-audit==2.7.3"
 #   bandit job     → pip install "bandit[toml]==1.7.10"
-#   test job       → pip install "pytest==8.3.4" "pytest-asyncio==0.24.0" "httpx==0.27.2"
+#   test job       → pip install "pytest==8.3.4" "pytest-asyncio==1.4.0" "httpx==0.27.2"
 #
 # Este arquivo serve como registro centralizado das versões canônicas.
 # O workflow instala apenas as dependências necessárias por job.
 pip-audit==2.7.3
 bandit[toml]==1.7.10
 pytest==8.3.4
-pytest-asyncio==0.24.0
+pytest-asyncio==1.4.0
 httpx==0.27.2
